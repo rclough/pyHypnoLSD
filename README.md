@@ -3,6 +3,7 @@ pyHypnoLSD
 
 Python tools for interacting with the [HypnoLSD](http://hypnocube.com/product/led_serial_driver/) module by Hypnocube.com
 
+Primarily written for use with the BeagleBone Black, it should work on any unix/linux system, and theoretically works on windows, but remains untested.
 
 Plan
 ----
