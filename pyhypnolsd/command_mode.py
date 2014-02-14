@@ -18,7 +18,7 @@ class CommandMode():
 	doesn't really need speed. Can be adjusted once started.
 	"""
 
-	def __init__(self,port):
+	def __init__(self,hypnolsd):
 		"""
 		Initialize CommandMode Object 
 
@@ -28,59 +28,48 @@ class CommandMode():
 			Serial port directory, ex: /dev/tty01
 
 		"""
+		self.hypnolsd = hypnolsd
 		self.new_baud = False
-		self.baud = hypnolsd.NATIVE_BAUD
-		self.serial = serial.Serial(port=port, baudrate=self.baud, timeout=0.3)
-		self.serial.close()
-		self.serial.open()
 
-	def send_command(self,command):
+	def send_command(self,command, print_it=False):
 		"""
-		Send a command to the HypnoLSD
+		Send a command to the HypnoLSD. Overrides "set speed nnnn" to
+		handle complexities of baudrate changes
 
 		Parameters
 		----------
 		command : string
 			A command string with no return characters
+		print_it : boolean (optional)
+			True if you want to actively print the response as its received
+
+		Returns
+		-------
+		response : list
+			List of strings of the response
 
 		"""
-		# Special case: if user tries to adjust speed, we need to 
-		# change the baud rate with it
+		# Special case: if user tries to adjust speed, use actual method
 		if SET_SPEED_REGEX.match(command):
 			divisor = int(command.split("set speed ")[1])
-			self.baud = hypnolsd.baud_from_divisor(divisor)
-			self.new_baud = True
-			print("Divisor change to " + str(divisor) + 
-				", baud to be set to " + str(self.baud))
+			return self.hypnolsd.change_divisor(divisor)
 
-		self.serial.write(command+"\r\n")
+		# Special case: Draw mode not supported
+		if command == "draw":
+			print("Draw Mode not supported from CommandMode object")
+			return ["Draw Mode not supported from CommandMode object"]
 
-	def read_response(self):
-		""" 
-		Should be called immediately after making a command, if you care about
-		the output. Output format not guaranteed during command mode due to
-		output from the default demo programs
-
-		"""
-
-		# Change baud rate if we haven't read since last change
-		if (self.new_baud):
-			self.new_baud = False
-			self.serial.flush() # wait for baud change to send
-			self.serial.baudrate = self.baud
-
-		# Read
-		has_serial = True
-		while has_serial:
-			from_serial = self.serial.readline()
-			if not from_serial:
-				has_serial = False
-			else:
-				sys.stdout.write(from_serial)
-				if from_serial == "OK\r\n":
-					break
-		sys.stdout.flush()
+		return self.hypnolsd.send_command(command, print_it=print_it)
 
 	def close(self):
 		""" Close connection to HypnoLSD """
-		self.serial.close()
+		self.hypnolsd.close()
+
+def from_port(port):
+	"""
+	Convenience method to generate a CommandMode object given only the port.
+	Creates a HypnoLSD object first and then instantiates the CommandMode object
+	with it.
+
+	"""
+	return CommandMode(hypnolsd.HypnoLSD(port))
